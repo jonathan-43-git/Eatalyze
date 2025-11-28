@@ -1,93 +1,72 @@
 import streamlit as st
-from google import genai
+import google.genai as genai
 from PIL import Image
 import json, re, io
 
-st.title("📦 Nutrition Facts OCR + Gemini Parser")
-st.write("Upload gambar *Nutrition Facts*, app akan mengekstrak lalu menghitung nutrisi per 1 gram.")
+# ==============================
+#        UI STREAMLIT
+# ==============================
+st.title("🍽 Nutrition OCR - Eatalyze")
+st.write("Upload label makanan → sistem ekstrak tulisan → hasil dalam JSON")
 
-# ===== Input API Key =====
-api_key = st.text_input("Masukkan API Key Google AI (tidak disimpan):", type="password")
+# Input API Key aman (tidak ditulis di kode)
+api_key = st.text_input("Masukkan Google Gemini API Key", type="password")
 
-uploaded_file = st.file_uploader("Upload gambar (JPEG/PNG):", type=["jpg","jpeg","png"])
+# Upload image
+uploaded_file = st.file_uploader("Upload Gambar Label", type=["png", "jpg", "jpeg"])
 
-# ================== PROSES ==================
-if st.button("Proses OCR & Ekstraksi"):
-
-    if not api_key:
-        st.error("❗ API KEY belum diisi.")
-        st.stop()
-
-    if uploaded_file is None:
-        st.error("❗ Upload gambar terlebih dahulu.")
-        st.stop()
-
-    client = genai.Client(api_key=api_key)
-
-    # Baca gambar
-    image = Image.open(uploaded_file)
-
-    # Prompt ke Gemini
-    prompt = (
-        "Extract nutrition facts from this image and output in JSON only. "
-        "Keys: 'serving-size','energy-kcal','fat','carbohydrates','proteins',"
-        "'saturated-fat','trans-fat','sugars','added-sugars','sodium','salt','fiber'. "
-        "Missing values = 0. Convert mg → g."
-    )
-
+if api_key and uploaded_file:
     try:
+        img = Image.open(uploaded_file)
+
+        # ==============================
+        #        PROSES OCR + JSON
+        # ==============================
+        client = genai.Client(api_key=api_key)
+
+        prompt = (
+            "Extract nutrition facts from the image and return as a JSON object only.\n"
+            "Keys: serving-size, energy-kcal, fat, saturated-fat, trans-fat, carbohydrates,"
+            "sugars, added-sugars, protein, fiber, sodium, salt.\n"
+            "If missing, value = 0. Convert mg → g."
+        )
+
         result = client.models.generate_content(
             model="gemini-2.5-flash",
-            contents=[prompt, image]
+            contents=[prompt, img]
         )
 
-        raw = result.text
-        st.subheader("📄 Raw Output Gemini:")
-        st.code(raw)
+        raw = result.text.strip()
+        raw = raw.replace("```json", "").replace("```", "").strip()
 
-        # Bersihkan format kode
-        clean = raw.replace("```json","").replace("```","").strip()
-
-        # Ambil JSON saja
-        try:
-            data = json.loads(clean)
-        except:
-            data = json.loads(re.search(r"\{.*\}", clean).group(0))
-
-        st.subheader("📌 Nutrition Extracted JSON")
-        st.json(data)
+        st.subheader("📥 Hasil OCR (Raw JSON)")
+        st.code(raw, language="json")
 
         # ==============================
-        # Hitung per 1 gram
+        #      Normalisasi + per-gram
         # ==============================
-        serving = data.get("serving-size","0")
-        serving_num = float(re.findall(r"[\d\.]+", str(serving))[0])
+        data = json.loads(raw)
+        result_per_gram = {}
 
-        result_1g = {}
+        serving_text = str(data.get("serving-size","0")).lower()
+        serving_num = re.findall(r"(\d+)", serving_text)
+        serving = int(serving_num[0]) if serving_num else 1  # avoid crash
 
-        for key,val in data.items():
-            if key == "serving-size": continue
-            
-            # Ambil angka numerik
-            number = float(re.findall(r"[\d\.]+", str(val))[0])
+        for key,value in data.items():
+            if key=="serving-size": 
+                continue
+            try:
+                v=str(value).replace("mg","")
+                v=float(v)/1000 if "mg" in str(value) else float(v)
+                result_per_gram[key+"_per_1g"]=round(v/serving,3)
+            except:
+                result_per_gram[key+"_per_1g"]=0
 
-            # Convert mg → g
-            if "mg" in str(val).lower():
-                number = number / 1000
-
-            result_1g[key+"_per_1g"] = round(number/serving_num,3)
-
-        st.subheader("⚖ Hasil Per 1 Gram")
-        st.json(result_1g)
-
-        # ====== Download JSON ======
-        json_bytes = json.dumps(result_1g, indent=2).encode('utf-8')
-        st.download_button(
-            "⬇ Download JSON per 1g",
-            data=json_bytes,
-            file_name="nutrition_per_1g.json",
-            mime="application/json"
-        )
+        st.subheader("📊 Nutrition per 1g")
+        st.json(result_per_gram)
 
     except Exception as e:
-        st.error(f"Terjadi error saat proses ❗\n{e}")
+        st.error(f"Gagal memproses: {e}")
+
+else:
+    st.info("Masukkan API key & upload gambar untuk mulai")
