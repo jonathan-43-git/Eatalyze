@@ -9,3 +9,4 @@ setuptools>=68.0
 wheel
 pytesseract
 Pillow
+google-genai
