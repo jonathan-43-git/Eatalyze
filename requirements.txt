@@ -1,11 +1,10 @@
 streamlit>=1.30
-numpy==1.24.3
+numpy==2.0.2
 pandas==2.1.4
 scikit-learn==1.3.2
 joblib==1.3.2
-protobuf==3.20.*
-setuptools
+protobuf==4.25.3
+setuptools>=68.0
 wheel
 pytesseract
 Pillow
-
