@@ -1,15 +1,19 @@
 import streamlit as st
 from google.genai import Client
 from PIL import Image
-import json, re
+import os, json, re
 
 st.title("🍽 Eatalyze — Nutrition OCR Analyzer")
 st.write("Upload label makanan → Extract → Output JSON → Hitung nutrisi per 1g")
 
-# ======================================================
-#  API KEY USER INPUT (AMAN - TIDAK HARDCODE)
-# ======================================================
-api_key = st.text_input("Masukkan Google Gemini API Key", type="password")
+# 🔥 AUTO LOAD API KEY DARI RAILWAY
+API_KEY = os.getenv("GEMINI_API_KEY")
+
+if not API_KEY:
+    st.error("❌ ENV `GEMINI_API_KEY` tidak ditemukan di Railway!")
+    st.stop()
+
+client = Client(api_key=API_KEY)
 
 # ======================================================
 #  UPLOAD GAMBAR
@@ -20,13 +24,8 @@ if uploaded_file:
     st.subheader("📸 Preview Gambar")
     st.image(uploaded_file, use_column_width=True)
 
-# ======================================================
-#  PROSES OCR SAAT API KEY + GAMBAR ADA
-# ======================================================
-if api_key and uploaded_file:
     try:
         img = Image.open(uploaded_file)
-        client = Client(api_key=api_key)
 
         prompt = (
             "Extract nutrition from the image and output ONLY a JSON object.\n"
@@ -48,16 +47,15 @@ if api_key and uploaded_file:
 
         data = json.loads(raw)
 
-        # ========== Serving Size Ambil Angka Saja ==========
+        # ========== Extract Serving Size ==========
         sv = re.findall(r"\d+", str(data.get("serving-size","0")))
-        serving = int(sv[0]) if sv else 1  # biar tidak crash kalau gagal baca
+        serving = int(sv[0]) if sv else 1
 
-        # ========== Konversi ke per gram ==========
+        # ========== Nutrition per 1 gram ==========
         nutr_per_gram = {}
         for k,v in data.items():
             if k == "serving-size":
                 continue
-
             try:
                 txt = str(v).lower()
                 val = float(txt.replace("mg",""))/1000 if "mg" in txt else float(txt)
@@ -72,4 +70,4 @@ if api_key and uploaded_file:
         st.error(f"❌ Error saat proses OCR: {e}")
 
 else:
-    st.info("Masukkan API Key + Upload gambar terlebih dahulu.")
+    st.info("Upload gambar nutrition label untuk mulai analisis.")
