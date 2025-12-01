@@ -21,12 +21,9 @@ def process_image(image_bytes):
     model = genai.GenerativeModel("gemini-2.0-flash")
     result = model.generate_content([prompt, img])
     raw = result.text.strip()
-
-    # bersihkan format ```json
     raw = raw.replace("```json","").replace("```","").strip()
 
     return raw
-
 
 @app.route("/analyze", methods=["POST"])
 def analyze():
@@ -41,11 +38,9 @@ def analyze():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-
 @app.route("/")
 def home():
     return "Nutrition OCR API Running ✔"
-
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8000)
