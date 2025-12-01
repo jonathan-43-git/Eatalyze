@@ -7,15 +7,15 @@ st.title("🍽 Eatalyze — Nutrition OCR Analyzer")
 st.write("Upload → Extract → JSON → Hitung nutrisi per 1g")
 
 # ======================================================
-# 🔥 Auto Ambil API KEY dari Railway
+# Auto Ambil API KEY dari Railway
 # ======================================================
 API_KEY = os.getenv("GEMINI_API_KEY") 
 
 if not API_KEY:
-    st.error("❌ ENV GEMINI_API_KEY tidak ditemukan di Railway!")
+    st.error("ENV GEMINI_API_KEY tidak ditemukan di Railway!")
     st.stop()
 else:
-    st.success("🔑 API Key Loaded from Railway ✔")
+    st.success("API Key Loaded from Railway")
 
 # ======================================================
 # Upload Gambar
@@ -54,10 +54,10 @@ if uploaded_file:
                 val = float(val.replace("mg",""))/1000 if "mg" in val else float(val)
                 nutr_per_gram[k+"_per_1g"] = round(val/serving,3)
 
-        st.subheader("📊 Nutrisi per 1g")
+        st.subheader("Nutrisi per 1g")
         st.json(nutr_per_gram)
 
     except Exception as e:
-        st.error(f"❌ Error OCR: {e}")
+        st.error(f"Error OCR: {e}")
 else:
     st.info("Upload gambar untuk mulai analisis.")
